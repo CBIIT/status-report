@@ -1,30 +1,13 @@
 # JIRA to DOCX Automation
 
-Automated system for retrieving JIRA issues, summarizing them withpython3 jira_automation.py
-```
-
-### Scheduled Automation
-
-python3 -m venv venv
-source venv/bin/activate
-
-For automated scheduled runs:
-
-```bash
-# Make automation script executable
-chmod +x run_automation.sh
-
-# Run manually
-./run_automation.sh
-
-# Or set up cron job (see cron_examples.txt)
-crontab -eOllama LLM, and generating Word document reports.
+Automated system for retrieving JIRA issues, summarizing them with Ollama LLM, and generating Word document reports.
 
 ## Features
 
-- Fetch JIRA issues using JQL queries
+- Fetch JIRA issues using JQL queries from multiple projects
 - AI-powered summarization using Ollama (local LLM)
 - Generate professional Word document reports
+- Support for multiple project configurations
 - Configurable via environment variables
 - Error handling and validation
 
@@ -36,14 +19,24 @@ crontab -eOllama LLM, and generating Word document reports.
 
 ## Quick Setup
 
-### Option 1: Automated Setup
+#### Using Virtual Environment
 
-```bash
-# Run the setup script
-./setup.sh
-```
+It is recommended to use a virtual environment to isolate dependencies. Follow these steps:
 
-### Option 2: Manual Setup
+1. Create a virtual environment:
+     ```bash
+     python3 -m venv venv
+     ```
+
+2. Activate the virtual environment:
+     - On macOS/Linux:
+       ```bash
+       source venv/bin/activate
+       ```
+     - On Windows:
+       ```bash
+       venv\Scripts\activate
+       ```
 
 #### 1. Install Dependencies
 
@@ -63,9 +56,10 @@ cp .env.example .env
 Or edit the `.env` file directly with your JIRA credentials:
 
 ```env
-JIRA_TOKEN=your_actual_token_here
-JIRA_URL=https://yourdomain.atlassian.net
-JIRA_JQL=project = "YOUR_PROJECT" AND updated >= "2025-07-01"
+JIRA_TOKEN=ATATTxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+JIRA_URL=https://tracker.nci.nih.gov
+JIRA_JQL=' AND (updated >= "2025-07-01" OR created >= "2025-07-01") AND issuetype in ("User Story", Bug, Task)'
+JIRA_PROJECTS=Index of NCI Studies,CCDI CPI,Clinical and Translational Data Commons,Population Science Data Commons, CCDI cBioPortal,Bento-Commons, NCI Data Sharing Hub
 ```
 
 **How to get JIRA Token:**
@@ -108,30 +102,53 @@ python3 test_setup.py
 
 ### Run the Automation
 
+The automation can be run in two ways:
+
+**Option 1: Direct execution (uses hardcoded project names)**
 ```bash
-python jira_automation.py
+python3 jira_automation.py
 ```
+
 
 ### Expected Output
 
-1. Fetches issues from JIRA based on your JQL query
-2. Processes each issue through Ollama for AI summarization
-3. Generates `JIRA_Summary_Report.docx` with formatted results
+The automation will:
+1. Process each specified project in your hardcoded list or PROJECT_NAMES environment variable
+2. Fetch issues from JIRA based on your JQL query for each project  
+3. Process each issue through Ollama for AI summarization
+4. Generate `JIRA_Summary_Report.docx` with formatted results organized by project
+
+**Default Projects** (when using direct execution):
+- Index of NCI Studies
+- CCDI CPI  
+- Clinical and Translational Data Commons
+- Population Science Data Commons
+- CCDI cBioPortal
+- Bento-Commons
+- NCI Data Sharing Hub
 
 ### Sample JQL Queries
 
-```bash
-# Recent issues from specific project
-project = "ABC" AND updated >= "2025-07-01"
+The JQL query in your `.env` file determines which issues are fetched for each project:
 
-# Open bugs with high priority
-project = "ABC" AND status != "Done" AND priority = "High"
+```bash
+# Recent issues (current default)
+' AND (updated >= "2025-07-01" OR created >= "2025-07-01") AND issuetype in ("User Story", Bug, Task)'
+
+# All open issues  
+' AND status != "Done"'
+
+# High priority issues
+' AND priority = "High" AND status != "Done"'
 
 # Issues assigned to you
-assignee = currentUser() AND status != "Done"
+' AND assignee = currentUser() AND status != "Done"'
 
 # Issues created in last 30 days
-created >= -30d
+' AND created >= -30d'
+
+# Specific issue types
+' AND issuetype in ("Bug", "Task", "Story")'
 ```
 
 ## File Structure
@@ -145,10 +162,6 @@ created >= -30d
 ├── setup.sh                   # Automated setup script
 ├── validate_config.py         # Configuration validator
 ├── test_setup.py              # Connection tester
-├── run_automation.sh          # Automation runner with logging
-├── cron_examples.txt          # Cron job examples
-├── logs/                      # Automation logs (created automatically)
-├── reports/                   # Timestamped report backups (created automatically)
 └── JIRA_Summary_Report.docx   # Generated report (after running)
 ```
 
@@ -158,15 +171,26 @@ created >= -30d
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `JIRA_TOKEN` | Your JIRA Personal Access Token | `ATBBxx...` |
-| `JIRA_URL` | Your JIRA instance URL | `https://company.atlassian.net` |
-| `JIRA_JQL` | JQL query to filter issues | `project = "ABC"` |
+| `JIRA_TOKEN` | Your JIRA Personal Access Token | `ATATTxx...` |
+| `JIRA_URL` | Your JIRA instance URL | `https://tracker.nci.nih.gov` |
+| `JIRA_JQL` | JQL query to filter issues (applies to all projects) | `' AND updated >= "2025-07-01"'` |
+| `PROJECT_NAMES` | Comma-separated list of project names (optional) | `"Project1,Project2,Project3"` |
+
+### Project Configuration
+
+**Method 1: Hardcoded Projects (Default)**
+The script includes a default list of NCI projects. No additional configuration needed.
+
+**Method 2: Environment Variable**
+Set `PROJECT_NAMES` in your `.env` file and modify the script to use `JiraToDocxAutomation.from_env_projects()` instead of the hardcoded list.
 
 ### Customization
 
 You can modify the script to:
+- Change project names in the hardcoded list (lines 275-283 in `jira_automation.py`)
+- Switch to environment-based project configuration (uncomment lines 271-272)
 - Change the Ollama model (line 16)
-- Adjust the maximum number of results (line 50)
+- Adjust the maximum number of results per project (line 50)
 - Customize the Word document formatting
 - Add additional JIRA fields
 
@@ -174,23 +198,26 @@ You can modify the script to:
 
 ### Common Issues
 
-1. **Import errors**: Run `pip install -r requirements.txt`
+1. **Import errors**: Run `pip3 install -r requirements.txt`
 2. **JIRA authentication**: Check your token and URL in `.env`
 3. **Ollama connection**: Ensure Ollama is running on `localhost:11434`
-4. **No issues found**: Verify your JQL query returns results in JIRA
+4. **No issues found**: Verify your JQL query returns results in JIRA for the specified projects
+5. **Project not found**: Ensure project names in the hardcoded list or PROJECT_NAMES match exactly with JIRA project names
 
 ### Error Messages
 
 - `JIRA_TOKEN must be set`: Update your `.env` file with actual token
+- `PROJECT_NAMES must be set`: Set PROJECT_NAMES in .env if using from_env_projects() method
 - `Error connecting to Ollama`: Start Ollama service
 - `JIRA API error`: Check your JIRA URL and token permissions
+- `Project not found in JIRA`: Verify project names exist and are spelled correctly
 
 ### Testing Connection
 
 Test JIRA connection:
 ```bash
 curl -H "Authorization: Bearer YOUR_TOKEN" \
-     "https://yourdomain.atlassian.net/rest/api/3/myself"
+     "https://tracker.nci.nih.gov/rest/api/3/myself"
 ```
 
 Test Ollama connection:
@@ -201,11 +228,12 @@ curl -X POST http://localhost:11434/api/generate \
 
 ## Optional Enhancements
 
-- **Scheduling**: Use cron jobs for automated runs
+- **Scheduling**: Use cron jobs for automated runs (see `run_automation.sh`)
 - **Email Reports**: Add SMTP integration
-- **Multiple Projects**: Support configuration files
+- **Dynamic Project Lists**: Use JIRA API to fetch project lists automatically
 - **Web Interface**: Build Flask/FastAPI frontend
 - **Cloud Storage**: Upload reports to S3/Google Drive
+- **Multi-environment**: Support different .env files for different environments
 
 ## Security Notes
 

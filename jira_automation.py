@@ -4,6 +4,7 @@ import json
 from docx import Document
 from dotenv import load_dotenv
 from typing import List, Dict, Any
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
@@ -27,14 +28,14 @@ class JiraToDocxAutomation:
     def from_env_projects(cls):
         """
         Create automation instance using project names from environment variable
-        Expected format: PROJECT_NAMES="Project1,Project2,Project3"
+        Expected format: JIRA_PROJECTS="Project1,Project2,Project3"
         """
-        project_names_env = os.getenv("PROJECT_NAMES", "")
+        project_names_env = os.getenv("JIRA_PROJECTS", "")
         if not project_names_env:
-            raise ValueError("PROJECT_NAMES must be set in .env file (comma-separated list)")
-        
+            raise ValueError("JIRA_PROJECTS must be set in .env file (comma-separated list)")
+
         project_names = [name.strip() for name in project_names_env.split(",")]
-        return cls(project_names)
+        return project_names
     
     def validate_config(self):
         """Validate that all required environment variables are set"""
@@ -60,10 +61,10 @@ class JiraToDocxAutomation:
             
             params = {
                 "jql": "project = '" + project_name + "' " + JQL,
-                "fields": "issuetype,key,summary,status,project,priority,assignee,reporter,description"
+                "fields": "issuetype,key,summary,status,project,priority,assignee,reporter,created,updated,duedate",
             }
-            
-            print(f"Fetching issues from JIRA with JQL: {JQL}")
+
+            print(f"Fetching issues from JIRA with JQL: project = '{project_name}' {JQL}")
             response = requests.get(
                 "https://tracker.nci.nih.gov/rest/api/2/search", 
                 headers=headers, 
@@ -101,12 +102,14 @@ class JiraToDocxAutomation:
             body = {
                 "model": "llama3",
                 "prompt": (
-                    "You are a project manager assistant. Given a list of JIRA issues or tasks with the fields: "
-                    "Issue Type, Issue Key, Summary, and Status, create a concise and professional high-level summary "
-                    "of planned or ongoing activities for this specific project in the current or upcoming month. "
-                    "Focus on key themes, major milestones, and overall project direction. Do not list individual issues. overall summary should limited in 150 words. Split the summary into Planned Activities  and tasks have been completed in the past month. "
-                    f"Here is the list of issues for this project: {text}"
-                ),
+                        "You are a project manager assistant. Given a list of JIRA issues or tasks with the fields: "
+                        "Issue Type, Issue Key, Summary, and Status, create a concise and professional high-level summary "
+                        "of planned or ongoing activities for this specific project in the current or upcoming month. "
+                        "Focus on key themes, major milestones, and overall project direction. Do not list individual issues. "
+                        "The overall summary should be limited to 150 words. Split the summary into two sections: Planned Activities and Completed Tasks from the past month. "
+                        "Additionally, provide a list of Deliverable tasks including the following fields: Due Date, Date Updated, Status, and Deliverable Name. "
+                        f"Here is the list of issues for this project: {text}"
+                    ),
                 "stream": False
             }
 
@@ -151,7 +154,7 @@ class JiraToDocxAutomation:
             doc = Document()
             
             # Add title
-            title = doc.add_heading("JIRA Projects Summary Report", 1)
+            title = doc.add_heading("Projects monthly status report", 1)
             title.alignment = 1  # Center alignment
             
             # Process each project
@@ -187,7 +190,9 @@ class JiraToDocxAutomation:
                 doc.add_page_break()
                 
             # Save document
-            doc.save(filename)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename_with_timestamp = f"{filename.split('.')[0]}_{timestamp}.docx"
+            doc.save(filename_with_timestamp)
             print(f"Document saved successfully as {filename}")
             
         except Exception as e:
@@ -229,12 +234,16 @@ class JiraToDocxAutomation:
                     "issue key": issue.get("key", "No key"),
                     "summary": fields.get("summary", "No summary"),
                     "status": fields.get("status", {}).get("name", "Unknown"),
+                    "created": fields.get("created", "Unknown"),
+                    "updated": fields.get("updated", "Unknown"),
+                    "duedate": fields.get("duedate", "No due date"),
+                    "priority": fields.get("priority", {}).get("name", "None"),
                 }
                 
                 issue_summaries.append(issue_data)
             
             # Step 3: Generate AI summary for this project
-            issues_string = "\n".join([f"Issue Key: {issue['issue key']}, Summary: {issue['summary']}, Status: {issue['status']}" for issue in issue_summaries])
+            issues_string = "\n".join([f"Issue Key: {issue['issue key']}, Summary: {issue['summary']}, Status: {issue['status']}, Created: {issue['created']}, Updated: {issue['updated']}, Due Date: {issue['duedate']}, Priority: {issue['priority']}" for issue in issue_summaries])
             print(f"\nGenerating AI summary for {project_name}...")
             ai_summary = self.summarize_with_ollama(issues_string)
             print(f"AI Summary for {project_name}:\n{ai_summary}")
@@ -260,21 +269,9 @@ class JiraToDocxAutomation:
 def main():
     """Entry point for the application"""
     try:
-        # Option 1: Use projects from environment variable
-        # Set PROJECT_NAMES="Project1,Project2,Project3" in .env file
-        # automation = JiraToDocxAutomation.from_env_projects()
-        
-        # Option 2: Hardcode project names
-        project_names = [
-            "Index of NCI Studies",
-            "CCDI CPI",
-            "Clinical and Translational Data Commons",
-            "Population Science Data Commons",
-            "CCDI cBioPortal",
-            "Bento-Commons",
-            "NCI Data Sharing Hub"
-        ]
-        
+     
+        project_names = JiraToDocxAutomation.from_env_projects()
+        print(f"Project names: {project_names}")
         automation = JiraToDocxAutomation(project_names)
         automation.run()
     except Exception as e:

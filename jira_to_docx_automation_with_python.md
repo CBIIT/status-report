@@ -16,14 +16,21 @@ This system automates the process of retrieving issues from JIRA, summarizing th
 - **Function**: Generate summaries for each JIRA issue
 - **Interface**: HTTP POST to Ollama's local API
 - **Model**: LLaMA 3 or similar (running locally)
-- **Endpoint**: `http://host.docker.internal:11434/api/generate`
+- **Endpoint**: `http://localhost:11434/api/generate`
 
 ### 3. Word Document Generation
 - **Function**: Compile summaries into a `.docx` file
-- **Library Options**:
-  - Python: `python-docx`
+- **Library**: `python-docx`
 
+### 4. Configuration Validation
+- **Function**: Validate environment variables and dependencies
+- **Script**: `validate_config.py`
 
+### 5. Connectivity Testing
+- **Function**: Test JIRA and Ollama API connections
+- **Script**: `test_setup.py`
+
+---
 
 ## Suitable Tech Stack
 
@@ -132,12 +139,21 @@ graph TD
    - Input: List of summaries
    - Output: `JIRA_Summary_Report.docx`
 
+4. **Validate Configuration**
+   - Input: Environment variables and dependencies
+   - Output: Validation results
+
+5. **Test Connectivity**
+   - Input: API endpoints
+   - Output: Connection status
+
 ---
 
 ## Security Considerations
 - Use `.env` files to store tokens
 - Ensure Ollama API is not exposed to public
 - Sanitize JIRA inputs before sending to LLM
+- Validate all configurations before execution
 
 ---
 
